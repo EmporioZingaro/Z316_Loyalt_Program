@@ -14,6 +14,7 @@ This repository hosts SQL and Python scripts for implementing Empório Zingaro's
   - [Commission Summary](#commission-summary)
 - [Running the Scripts](#running-the-scripts)
 - [Contributing](#contributing)
+- [Future Improvements](#future-improvements)
 - [Contact](#contact)
 
 ## Program Logic
@@ -71,6 +72,20 @@ The `commission_summary.sql` script provides a summary of commissions earned by 
 
 ## Running the Scripts
 Execute the SQL scripts within Google BigQuery, and after calculating the loyalty tiers, use `bq_to_sendgrid.py` to distribute program results to customers, detailing their tier and associated rewards.
+
+## Future Improvements
+
+The following items are identified as areas for enhancement in the future iterations of the Empório Zingaro Loyalty Program project:
+
+- **Step-by-Step Usage Instructions**: Develop comprehensive, step-by-step guides detailing how to execute the SQL queries and utilize the Python script within the Google BigQuery environment, ensuring users of all skill levels can effectively interact with the program components.
+
+- **Refactor Python Code for Configuration Management**: Update the Python script to leverage environment variables for configuration settings, such as API keys and database connection strings, enhancing security and flexibility in different environments.
+
+- **Dynamic Date Handling in SQL Queries**: Modify the `fidelity_program.sql` script to dynamically calculate date ranges based on the current date, automatically targeting the previous trimester. This improvement aims to eliminate the need for manual date updates in the script, streamlining the process for end-of-trimester executions.
+
+- **Scripted Query Execution**: Develop a Python script to encapsulate and run the SQL queries in sequence directly from a terminal. This enhancement aims to provide a streamlined, automated process for executing the loyalty program's data processing steps, reducing dependency on the Google BigQuery UI and enhancing usability for a broader range of users and use cases.
+
+These enhancements are aimed at improving the usability, security, and automation of the loyalty program, aligning with best practices in software development and data engineering.
 
 ## Contributing
 Contributions are invited to enhance the fidelity program's effectiveness and accuracy. Significant improvements may be rewarded with recognition within the program's structure.
