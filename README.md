@@ -85,6 +85,14 @@ The following items are identified as areas for enhancement in the future iterat
 
 - **Scripted Query Execution**: Develop a Python script to encapsulate and run the SQL queries in sequence directly from a terminal. This enhancement aims to provide a streamlined, automated process for executing the loyalty program's data processing steps, reducing dependency on the Google BigQuery UI and enhancing usability for a broader range of users and use cases.
 
+- **Data Validation and Troubleshooting**: Integrate robust data validation checks within the SQL queries to ensure the fidelity program's outputs accurately represent customer interactions and transactions. This will include developing a troubleshooting guide to address common discrepancies and data anomalies.
+
+- **Detailed Rewards Explanation**: Expand the fidelity program documentation to include a thorough breakdown of the cashback and commission structures, detailing the percentage rates and value calculations. This will provide clearer insights into how rewards are determined and allocated based on customer tiers and activities.
+
+- **Loyalty Program Dynamics**: Elaborate on the loyalty program's operational rules, with a particular focus on the cyclical nature of tier evaluation and assignment. Clarify how customer behavior during each trimester influences tier movement, reinforcing the dynamic and performance-based aspect of the program.
+
+- **Data Privacy and Security Measures**: Add a section dedicated to outlining the data privacy and security protocols in place to protect sensitive customer information processed through the loyalty program. This will address data handling practices, compliance with relevant regulations, and measures to ensure data integrity and confidentiality.
+
 These enhancements are aimed at improving the usability, security, and automation of the loyalty program, aligning with best practices in software development and data engineering.
 
 ## Contributing
