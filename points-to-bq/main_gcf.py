@@ -252,9 +252,9 @@ def extract_pdv_data(pdv_data: dict) -> tuple:
         pdv_data (dict): The PDV JSON data.
 
     Returns:
-        tuple: A tuple containing the extracted data (pedido_id, pedido_numero, pedido_dia, total_produtos, total_venda, observacoes, forma_pagamento, cliente_nome, cliente_cpf).
+        tuple: A tuple containing the extracted data (pedido_id, pedido_numero, pedido_dia, total_produtos, total_venda, observacoes, forma_pagamento, cliente_nome, cliente_cpf, desconto).
     """
-    logger.debug(f"Extracting PDV data: {pdv_data}")
+    logger.info("Extracting PDV data")
     try:
         pedido_pdv = pdv_data['retorno']['pedido']
         pedido_id = pedido_pdv['id']
@@ -266,11 +266,48 @@ def extract_pdv_data(pdv_data: dict) -> tuple:
         forma_pagamento = pedido_pdv['formaPagamento']
         cliente_nome = pedido_pdv['contato']['nome']
         cliente_cpf = pedido_pdv['contato']['cpfCnpj']
-        logger.debug(f"Extracted PDV data - Pedido ID: {pedido_id}, Pedido Numero: {pedido_numero}, Pedido Dia: {pedido_dia}, Total Produtos: {total_produtos}, Total Venda: {total_venda}, Observacoes: {observacoes}, Forma Pagamento: {forma_pagamento}, Cliente Nome: {cliente_nome}, Cliente CPF: {cliente_cpf}")
-        return pedido_id, pedido_numero, pedido_dia, total_produtos, total_venda, observacoes, forma_pagamento, cliente_nome, cliente_cpf
+        desconto = pedido_pdv['desconto']
+        logger.info(f"Extracted PDV data - Pedido ID: {pedido_id}, Pedido Numero: {pedido_numero}, Pedido Dia: {pedido_dia}, Total Produtos: {total_produtos}, Total Venda: {total_venda}, Observacoes: {observacoes}, Forma Pagamento: {forma_pagamento}, Cliente Nome: {cliente_nome}, Cliente CPF: {cliente_cpf}, Desconto: {desconto}")
+        return pedido_id, pedido_numero, pedido_dia, total_produtos, total_venda, observacoes, forma_pagamento, cliente_nome, cliente_cpf, desconto
     except (KeyError, ValueError) as exception:
         logger.error(f"Error extracting PDV data: {str(exception)}")
-        return None, None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None, None
+
+
+def validate_pdv_data(desconto: str, forma_pagamento: str, cliente_nome: str, cliente_cpf: str) -> bool:
+    """
+    Validate the PDV data based on the specified rules.
+
+    Args:
+        desconto (str): The desconto value.
+        forma_pagamento (str): The forma_pagamento value.
+        cliente_nome (str): The cliente_nome value.
+        cliente_cpf (str): The cliente_cpf value.
+
+    Returns:
+        bool: True if the PDV data is valid, False otherwise.
+    """
+    logger.info("Validating PDV data")
+    valid = True
+
+    if desconto not in ['0', '0,00']:
+        logger.info(f"Invalid desconto: {desconto}")
+        valid = False
+
+    if forma_pagamento not in ['credito', 'debito', 'pix', 'multiplas', 'dinheiro']:
+        logger.info(f"Invalid forma_pagamento: {forma_pagamento}")
+        valid = False
+
+    if cliente_nome == 'Consumidor Final':
+        logger.info(f"Invalid cliente_nome: {cliente_nome}")
+        valid = False
+
+    if not re.match(r'^\d{3}\.\d{3}\.\d{3}-\d{2}$', str(cliente_cpf)):
+        logger.info(f"Invalid cliente_cpf: {cliente_cpf}")
+        valid = False
+
+    logger.info(f"PDV data validation result: {valid}")
+    return valid
 
 
 def process_pedido_item(item: dict, produto_data: dict, processing_timestamp: datetime, pedido_dia: str, uuid: str, nome_vendedor: str, id_vendedor: str, cliente_nome: str, cliente_cpf: str) -> tuple:
@@ -291,14 +328,14 @@ def process_pedido_item(item: dict, produto_data: dict, processing_timestamp: da
     Returns:
         tuple: A tuple containing the processed data (produto_valor_total, produto_pontos, sales_items_row).
     """
-    logger.debug(f"Processing pedido item: {item}")
+    logger.info(f"Processing pedido item: {item}")
     produto_id = item['idProduto']
     produto = produto_data.get(produto_id)
     if produto:
         produto_descricao = item.get('descricao', '')
         produto_quantidade = float(item.get('quantidade', 0))
         produto_valor = float(item.get('valor', 0))
-        produto_desconto = float(item.get('desconto', 0))
+        produto_desconto = item.get('desconto', '0.00')
         produto_preco_custo = float(produto['produto'].get('preco_custo', 0))
         produto_obs = produto['produto'].get('obs', '')
         produto_categoria = produto['produto'].get('categoria', '')
@@ -310,6 +347,11 @@ def process_pedido_item(item: dict, produto_data: dict, processing_timestamp: da
         categoria_split = produto_categoria.split(' >> ')
         produto_category_first = categoria_split[0] if len(categoria_split) > 0 else ''
         produto_category_second = categoria_split[1] if len(categoria_split) > 1 else ''
+
+        if produto_desconto != '0.00':
+            logger.info(f"Skipping pedido item due to invalid desconto: {produto_desconto}")
+            return None, None, None
+
         sales_items_row = {
             'uuid': uuid,
             'timestamp': convert_to_sao_paulo_time(processing_timestamp),
@@ -337,11 +379,11 @@ def process_pedido_item(item: dict, produto_data: dict, processing_timestamp: da
             'version_control': VERSION_CONTROL,
             'processed_timestamp': datetime.now(tz=ZoneInfo("America/Sao_Paulo")).isoformat()
         }
-        logger.debug(f"Processed pedido item - Produto ID: {produto_id}, Produto Descricao: {produto_descricao}, Produto Quantidade: {produto_quantidade}, Produto Valor: {produto_valor}, Produto Valor Total: {produto_valor_total}, Produto Multiplier: {produto_multiplier}, Special Multiplier: {special_multiplier}, Final Multiplier: {final_multiplier}, Produto Pontos: {produto_pontos}")
+        logger.info(f"Processed pedido item - Produto ID: {produto_id}, Produto Descricao: {produto_descricao}, Produto Quantidade: {produto_quantidade}, Produto Valor: {produto_valor}, Produto Valor Total: {produto_valor_total}, Produto Multiplier: {produto_multiplier}, Special Multiplier: {special_multiplier}, Final Multiplier: {final_multiplier}, Produto Pontos: {produto_pontos}")
         return produto_valor_total, produto_pontos, sales_items_row
     else:
         logger.warning(f"Produto not found for Produto ID: {produto_id}")
-    return 0.0, 0.0, None
+    return None, None, None
 
 
 def process_pedido_items(pedido_pdv: dict, produto_data: dict, processing_timestamp: datetime, pedido_dia: str, uuid: str, nome_vendedor: str, id_vendedor: str, cliente_nome: str, cliente_cpf: str) -> tuple:
@@ -364,6 +406,9 @@ def process_pedido_items(pedido_pdv: dict, produto_data: dict, processing_timest
     """
     logger.info(f"Processing pedido items for UUID: {uuid}")
     sales_items_rows = []
+    valid_items_count = 0
+    skipped_items_count = 0
+
     for item in pedido_pdv['itens']:
         item['pedido_id'] = pedido_pdv['id']
         item['pedido_numero'] = pedido_pdv['numero']
@@ -372,10 +417,13 @@ def process_pedido_items(pedido_pdv: dict, produto_data: dict, processing_timest
         )
         if sales_items_row:
             sales_items_rows.append(sales_items_row)
+            valid_items_count += 1
+        else:
+            skipped_items_count += 1
 
     pedido_valor = sum(row['produto_valor_total'] for row in sales_items_rows)
     pedido_pontos = sum(row['produto_pontos'] for row in sales_items_rows)
-    logger.debug(f"Processed pedido items - Pedido Valor: {pedido_valor}, Pedido Pontos: {pedido_pontos}, Sales Items Rows: {len(sales_items_rows)}")
+    logger.info(f"Processed pedido items - Valid Items: {valid_items_count}, Skipped Items: {skipped_items_count}, Pedido Valor: {pedido_valor}, Pedido Pontos: {pedido_pontos}")
     return pedido_valor, pedido_pontos, sales_items_rows
 
 
@@ -504,17 +552,20 @@ def load_data_to_bigquery(sales_row: dict, sales_items_rows: List[dict], uuid: s
         sales_items_table.primary_key = sales_items_primary_key
         bigquery_client.update_table(sales_items_table, ["schema", "primary_key"])
 
-        errors = bigquery_client.insert_rows_json(sales_table_id, [sales_row])
-        if errors:
-            logger.error(f"Errors while inserting sales data: {errors}")
-        else:
-            logger.info(f"Sales data inserted successfully for UUID: {uuid}")
+        if sales_items_rows:
+            errors = bigquery_client.insert_rows_json(sales_table_id, [sales_row])
+            if errors:
+                logger.error(f"Errors while inserting sales data: {errors}")
+            else:
+                logger.info(f"Sales data inserted successfully for UUID: {uuid}")
 
-        errors = bigquery_client.insert_rows_json(sales_items_table_id, sales_items_rows)
-        if errors:
-            logger.error(f"Errors while inserting sales items data: {errors}")
+            errors = bigquery_client.insert_rows_json(sales_items_table_id, sales_items_rows)
+            if errors:
+                logger.error(f"Errors while inserting sales items data: {errors}")
+            else:
+                logger.info(f"Sales items data inserted successfully for UUID: {uuid}")
         else:
-            logger.info(f"Sales items data inserted successfully for UUID: {uuid}")
+            logger.info(f"No data to insert for UUID: {uuid}")
     except Exception as exception:
         logger.exception(f"Error loading data to BigQuery: {str(exception)}")
 
@@ -532,13 +583,16 @@ def process_message(message: pubsub_v1.subscriber.message.Message) -> None:
         pesquisa_data, pdv_data, produto_data, processing_timestamp = download_json_files(uuid)
         if pesquisa_data and pdv_data and processing_timestamp:
             nome_vendedor, id_vendedor = extract_pesquisa_data(pesquisa_data)
-            pedido_id, pedido_numero, pedido_dia, total_produtos, total_venda, observacoes, forma_pagamento, cliente_nome, cliente_cpf = extract_pdv_data(pdv_data)
+            pedido_id, pedido_numero, pedido_dia, total_produtos, total_venda, observacoes, forma_pagamento, cliente_nome, cliente_cpf, desconto = extract_pdv_data(pdv_data)
             if nome_vendedor and id_vendedor and pedido_id and pedido_numero and pedido_dia:
-                pedido_valor, pedido_pontos, sales_items_rows = process_pedido_items(
-                    pdv_data['retorno']['pedido'], produto_data, processing_timestamp, pedido_dia, uuid, nome_vendedor, id_vendedor, cliente_nome, cliente_cpf
-                )
-                sales_row = prepare_sales_row(uuid, processing_timestamp, pedido_dia, pdv_data['retorno']['pedido'], nome_vendedor, id_vendedor, cliente_nome, cliente_cpf, pedido_valor, pedido_pontos)
-                load_data_to_bigquery(sales_row, sales_items_rows, uuid)
+                if validate_pdv_data(desconto, forma_pagamento, cliente_nome, cliente_cpf):
+                    pedido_valor, pedido_pontos, sales_items_rows = process_pedido_items(
+                        pdv_data['retorno']['pedido'], produto_data, processing_timestamp, pedido_dia, uuid, nome_vendedor, id_vendedor, cliente_nome, cliente_cpf
+                    )
+                    sales_row = prepare_sales_row(uuid, processing_timestamp, pedido_dia, pdv_data['retorno']['pedido'], nome_vendedor, id_vendedor, cliente_nome, cliente_cpf, pedido_valor, pedido_pontos)
+                    load_data_to_bigquery(sales_row, sales_items_rows, uuid)
+                else:
+                    logger.warning(f"Invalid PDV data for UUID: {uuid}")
             else:
                 logger.warning(f"Incomplete data for UUID: {uuid}")
         else:
